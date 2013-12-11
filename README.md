@@ -1,3 +1,7 @@
-The OpenShift `nodejs` cartridge documentation can be found at:
+##WebSocket Node.js app running on OpenShift##
 
-https://github.com/openshift/origin-server/tree/master/cartridges/openshift-origin-cartridge-nodejs/README.md
+Create a new application using rhc
+
+```
+$ rhc create-app ws nodejs-0.10 ---from-code=https://github.com/shekhargulati/nodejs-openshift-websocket-example.git
+```
