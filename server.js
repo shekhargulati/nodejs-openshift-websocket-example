@@ -1,159 +1,54 @@
-#!/bin/env node
-//  OpenShift sample Node application
-var express = require('express');
-var fs      = require('fs');
+var WebSocketServer = require('ws').Server;
+var http = require('http');
+
+var ipaddr  = process.env.OPENSHIFT_NODEJS_IP || "127.0.0.1";
+var port      = process.env.OPENSHIFT_NODEJS_PORT || 3000
 
 
-/**
- *  Define the sample application.
- */
-var SampleApp = function() {
+/*var io = require('socket.io').listen(16000,ipaddr);
 
-    //  Scope.
-    var self = this;
+io.sockets.on('connection', function (socket) {
+  console.log('io connection');
+  socket.emit('news', { hello: 'world' });
+  socket.on('my other event', function (data) {
+    console.log(data);
+  });
+});
+console.log('io listening on port 16000');
+*/  
+var server = http.createServer();
+//var wss = new WebSocketServer({server: server, path: '/connect'});
 
+var  wss = new WebSocketServer({host: process.env.OPENSHIFT_NODEJS_IP, port: 8000})
+wss.on('connection', function(ws) {
+    console.log('/connection connected');
+    ws.on('message', function(data, flags) {
+        if (flags.binary) { return; }
+        console.log('>>> ' + data);
+        if (data == 'test') { console.log('test'); ws.send('got test'); }
+        if (data == 'hello') { console.log('hello'); ws.send('WAZZZUP!'); }
+    });
+    ws.on('close', function() {
+      console.log('Connection closed!');
+    });
+    ws.on('error', function(e) {
+    });
+});
 
-    /*  ================================================================  */
-    /*  Helper functions.                                                 */
-    /*  ================================================================  */
+wss.on('connect', function(ws) {
+    console.log('/connect connected');
+    ws.on('message', function(data, flags) {
+        if (flags.binary) { return; }
+        console.log('>>> ' + data);
+        if (data == 'test') { console.log('test'); ws.send('got test'); }
+        if (data == 'hello') { console.log('hello'); ws.send('WAZZZUP!'); }
+    });
+    ws.on('close', function() {
+      console.log('Connection closed!');
+    });
+    ws.on('error', function(e) {
+    });
+});
 
-    /**
-     *  Set up server IP address and port # using env variables/defaults.
-     */
-    self.setupVariables = function() {
-        //  Set the environment variables we need.
-        self.ipaddress = process.env.OPENSHIFT_NODEJS_IP;
-        self.port      = process.env.OPENSHIFT_NODEJS_PORT || 8080;
-
-        if (typeof self.ipaddress === "undefined") {
-            //  Log errors on OpenShift but continue w/ 127.0.0.1 - this
-            //  allows us to run/test the app locally.
-            console.warn('No OPENSHIFT_NODEJS_IP var, using 127.0.0.1');
-            self.ipaddress = "127.0.0.1";
-        };
-    };
-
-
-    /**
-     *  Populate the cache.
-     */
-    self.populateCache = function() {
-        if (typeof self.zcache === "undefined") {
-            self.zcache = { 'index.html': '' };
-        }
-
-        //  Local cache for static content.
-        self.zcache['index.html'] = fs.readFileSync('./index.html');
-    };
-
-
-    /**
-     *  Retrieve entry (content) from cache.
-     *  @param {string} key  Key identifying content to retrieve from cache.
-     */
-    self.cache_get = function(key) { return self.zcache[key]; };
-
-
-    /**
-     *  terminator === the termination handler
-     *  Terminate server on receipt of the specified signal.
-     *  @param {string} sig  Signal to terminate on.
-     */
-    self.terminator = function(sig){
-        if (typeof sig === "string") {
-           console.log('%s: Received %s - terminating sample app ...',
-                       Date(Date.now()), sig);
-           process.exit(1);
-        }
-        console.log('%s: Node server stopped.', Date(Date.now()) );
-    };
-
-
-    /**
-     *  Setup termination handlers (for exit and a list of signals).
-     */
-    self.setupTerminationHandlers = function(){
-        //  Process on exit and signals.
-        process.on('exit', function() { self.terminator(); });
-
-        // Removed 'SIGPIPE' from the list - bugz 852598.
-        ['SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT',
-         'SIGBUS', 'SIGFPE', 'SIGUSR1', 'SIGSEGV', 'SIGUSR2', 'SIGTERM'
-        ].forEach(function(element, index, array) {
-            process.on(element, function() { self.terminator(element); });
-        });
-    };
-
-
-    /*  ================================================================  */
-    /*  App server functions (main app logic here).                       */
-    /*  ================================================================  */
-
-    /**
-     *  Create the routing table entries + handlers for the application.
-     */
-    self.createRoutes = function() {
-        self.routes = { };
-
-        self.routes['/asciimo'] = function(req, res) {
-            var link = "http://i.imgur.com/kmbjB.png";
-            res.send("<html><body><img src='" + link + "'></body></html>");
-        };
-
-        self.routes['/'] = function(req, res) {
-            res.setHeader('Content-Type', 'text/html');
-            res.send(self.cache_get('index.html') );
-        };
-    };
-
-
-    /**
-     *  Initialize the server (express) and create the routes and register
-     *  the handlers.
-     */
-    self.initializeServer = function() {
-        self.createRoutes();
-        self.app = express.createServer();
-
-        //  Add handlers for the app (from the routes).
-        for (var r in self.routes) {
-            self.app.get(r, self.routes[r]);
-        }
-    };
-
-
-    /**
-     *  Initializes the sample application.
-     */
-    self.initialize = function() {
-        self.setupVariables();
-        self.populateCache();
-        self.setupTerminationHandlers();
-
-        // Create the express server and routes.
-        self.initializeServer();
-    };
-
-
-    /**
-     *  Start the server (starts up the sample application).
-     */
-    self.start = function() {
-        //  Start the app on the specific interface (and port).
-        self.app.listen(self.port, self.ipaddress, function() {
-            console.log('%s: Node server started on %s:%d ...',
-                        Date(Date.now() ), self.ipaddress, self.port);
-        });
-    };
-
-};   /*  Sample Application.  */
-
-
-
-/**
- *  main():  Main code.
- */
-var zapp = new SampleApp();
-zapp.initialize();
-zapp.start();
-
+console.log('Listening at IP ' + ipaddr +' on port '+port);
+server.listen(port,ipaddr);
