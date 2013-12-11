@@ -19,7 +19,7 @@ console.log('io listening on port 16000');
 var server = http.createServer();
 //var wss = new WebSocketServer({server: server, path: '/connect'});
 
-var  wss = new WebSocketServer({host: process.env.OPENSHIFT_NODEJS_IP, port: 8000})
+var  wss = new WebSocketServer({server:server})
 console.log(wss);
 wss.on('connection', function(ws) {
     console.log('/connection connected');
